@@ -2,7 +2,10 @@ venv/
 __pycache__/
 *.pyc
 .env
+temp_audio/
 .vscode/
 .idea/
 *.mp3
 temp*
+
+voice-ai-detector/temp_5d3f5478-023a-4c8c-b83c-76085a01fa8f.mp3 voice-ai-detector/temp_74e8d8db-e179-4b42-9268-16dd5411c81d.mp3 voice-ai-detector/temp_48334a23-f408-4c97-bc5d-c351498f90d0.mp3 voice-ai-detector/temp_c6a9b6fe-1d85-42e4-82f0-8e3c9f90ebd5.mp3

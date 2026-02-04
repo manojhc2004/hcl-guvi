@@ -1,58 +1,53 @@
 from fastapi import FastAPI, Header, HTTPException
+from pydantic import BaseModel
+from utils.audio import process_audio, cleanup_files
 from model.detector import detect_voice
-from utils.audio import save_audio
-import os
 
 app = FastAPI()
 
-API_KEY = "sk_test_123456"
+API_KEY = "sk_guvi_hcl_2026"
 
-SUPPORTED_LANGUAGES = ["Tamil", "English", "Hindi", "Malayalam", "Telugu"]
+ALLOWED_LANGUAGES = ["Tamil", "English", "Hindi", "Malayalam", "Telugu"]
+
+
+class VoiceRequest(BaseModel):
+    language: str
+    audioFormat: str
+    audioBase64: str
+
+
+@app.get("/")
+def health():
+    return {"status": "running"}
 
 
 @app.post("/api/voice-detection")
-def voice_detection(data: dict, x_api_key: str = Header(None)):
+def voice_detection(request: VoiceRequest, x_api_key: str = Header(None)):
+
+    # ✅ API KEY
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # ✅ format check
+    if request.audioFormat.lower() != "mp3":
+        raise HTTPException(status_code=400, detail="Only MP3 allowed")
+
+    # ✅ language check
+    if request.language not in ALLOWED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+
+    mp3_path, wav_path = process_audio(request.audioBase64)
 
     try:
-        # ✅ API KEY CHECK
-        if x_api_key != API_KEY:
-            raise HTTPException(status_code=401, detail="Invalid API key")
+        classification, confidence, explanation = detect_voice(wav_path)
 
-        # ✅ LANGUAGE CHECK
-        if data.get("language") not in SUPPORTED_LANGUAGES:
-            raise HTTPException(status_code=400, detail="Unsupported language")
-
-        # ✅ AUDIO CHECK
-        if not data.get("audioBase64"):
-            raise HTTPException(status_code=400, detail="Audio data missing")
-
-        # ✅ SAVE AUDIO
-        audio_path = save_audio(data.get("audioBase64"))
-
-        # ✅ DETECT VOICE
-        classification, score, explanation = detect_voice(audio_path)
-
-        # ✅ DELETE TEMP FILE (VERY IMPORTANT)
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
-
-        # ✅ RESPONSE FORMAT (Matches Hackathon)
         return {
             "status": "success",
-            "language": data["language"],
+            "language": request.language,
             "classification": classification,
-            "confidenceScore": round(score, 2),
+            "confidenceScore": confidence,
             "explanation": explanation
         }
 
-    # ✅ Let FastAPI handle real HTTP errors
-    except HTTPException:
-        raise
-
-    # ✅ Catch unexpected crashes
-    except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid or corrupted audio file"
-        )
-
+    finally:
+        cleanup_files(mp3_path, wav_path)

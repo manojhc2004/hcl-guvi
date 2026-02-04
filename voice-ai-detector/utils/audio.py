@@ -1,15 +1,36 @@
 import base64
 import uuid
+import os
+from pydub import AudioSegment
+
+from pydub import AudioSegment
+AudioSegment.converter = "ffmpeg"
+
+TEMP_DIR = "temp_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 
-def save_audio(base64_string):
+def process_audio(audio_base64: str):
 
-    if not base64_string:
-        raise ValueError("Empty audio data")
+    file_id = str(uuid.uuid4())
 
-    file_path = f"temp_{uuid.uuid4()}.mp3"
+    mp3_path = f"{TEMP_DIR}/{file_id}.mp3"
+    wav_path = f"{TEMP_DIR}/{file_id}.wav"
 
-    with open(file_path, "wb") as f:
-        f.write(base64.b64decode(base64_string))
+    # decode
+    audio_bytes = base64.b64decode(audio_base64)
 
-    return file_path
+    with open(mp3_path, "wb") as f:
+        f.write(audio_bytes)
+
+    # convert
+    sound = AudioSegment.from_mp3(mp3_path)
+    sound.export(wav_path, format="wav")
+
+    return mp3_path, wav_path
+
+
+def cleanup_files(*paths):
+    for path in paths:
+        if os.path.exists(path):
+            os.remove(path)
